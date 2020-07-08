@@ -25,16 +25,18 @@ class Agent(nn.Module):
         # define layers
         self.layers = []
         self.layers.append(nn.Linear(self.s_size, self.h_sizes[0]))
-        #self.layers.append(nn.Linear(self.h_sizes[0], self.h_sizes[1]))
-        self.layers.append(nn.Linear(self.h_sizes[0], self.a_size))
-        self.softmax = nn.Softmax(dim=0)
+        self.layers.append(nn.Linear(self.h_sizes[0], self.h_sizes[1]))
+        self.layers.append(nn.Linear(self.h_sizes[1], self.a_size))
         self.seed = torch.manual_seed(seed)
 
     def forward(self, state):
         x = state
         for i in range(len(self.layers)):
-            x = F.relu(self.layers[i](x))
-        x = self.softmax(x)
+            #print(i)
+            x = self.layers[i](x)
+            if i != len(self.layers) - 1:
+                x = F.relu(x)
+        x = F.softmax(x, dim=-1)
         return np.random.choice(self.a_size, p=x.detach().numpy())
         
     def set_weights(self, weights):
@@ -51,7 +53,7 @@ class Agent(nn.Module):
             end = start + (sizes[i]*sizes[i+1]) + sizes[i+1]
             fc_W[i] = torch.from_numpy(weights[start : start + sizes[i]*sizes[i+1]].reshape(sizes[i], sizes[i+1]))
             fc_b[i] = torch.from_numpy(weights[start + sizes[i]*sizes[i+1] : end])
-            start = (sizes[i]*sizes[i+1]) + sizes[i+1]
+            start = end
             # set the weights for each layer
             self.layers[i].weight.data.copy_(fc_W[i].view_as(self.layers[i].weight.data))
             self.layers[i].bias.data.copy_(fc_b[i].view_as(self.layers[i].bias.data))
