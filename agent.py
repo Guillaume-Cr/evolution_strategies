@@ -10,7 +10,7 @@ from collections import deque
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Agent(nn.Module):
-    def __init__(self, env, state_size, action_size, h_sizes=[64], seed=0):
+    def __init__(self, env, state_size, action_size, h_sizes=[16,8], seed=0):
         super(Agent, self).__init__()
         self.env = env
         # state, hidden layer, action sizes
@@ -50,11 +50,16 @@ class Agent(nn.Module):
         fc_b = [0 for i in range(len(sizes) - 1)]
         start = 0
         for i in range(len(sizes) - 1):
+            #print("start", start)
             end = start + (sizes[i]*sizes[i+1]) + sizes[i+1]
+            #print("end", end)
             fc_W[i] = torch.from_numpy(weights[start : start + sizes[i]*sizes[i+1]].reshape(sizes[i], sizes[i+1]))
             fc_b[i] = torch.from_numpy(weights[start + sizes[i]*sizes[i+1] : end])
             start = end
+        
             # set the weights for each layer
+            #print(fc_W[i].shape)
+            #print(self.layers[i].weight.data.shape)
             self.layers[i].weight.data.copy_(fc_W[i].view_as(self.layers[i].weight.data))
             self.layers[i].bias.data.copy_(fc_b[i].view_as(self.layers[i].bias.data))
     
