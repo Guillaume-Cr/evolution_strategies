@@ -15,7 +15,7 @@ env.seed(0)
 from agent import Agent
 
 #Number of agents working in parallel
-num_agents = 1
+num_agents = 2
 agents = []
 for i in range(num_agents):
     agent = Agent(env, state_size=8, action_size=4, seed=i)
@@ -23,19 +23,19 @@ for i in range(num_agents):
 
 def sample_reward(current_weight, index, seed, population, gamma, max_t, std):
     np.random.seed(seed)
-    print("index ", index)
     weights = [current_weight + (std*np.random.randn(agents[index].get_weights_dim())) for i in range(population)]
     rewards = [agents[index].evaluate(weight, gamma, max_t) for weight in weights]
-    return rewards
+    return {seed : rewards}
 
 def update_weights(weights, seeds, alpha, std, rewards):
     scaled_perturbations = []
     i_start = seeds[0]
     for i in seeds:
-        np.random.seed(i)
+        seed = rewards[i].key()
+        np.random.seed(seed)
         population = len(rewards[i-i_start])
         for j in range(population):
-            scaled_perturbations.append(np.multiply(rewards[i-i_start][j], np.random.randn(agents[i-i_start].get_weights_dim())))
+            scaled_perturbations.append(np.multiply(rewards[i].value()[j], np.random.randn(agents[i-i_start].get_weights_dim())))
     n = len(scaled_perturbations)
     deltas = alpha / (n * std) * np.sum(scaled_perturbations, axis=0)
     return weights + deltas
@@ -56,6 +56,7 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.1, gamma=1.0, population=
     scores_deque = deque(maxlen=100)
     scores = []
     current_weights = []
+    rewards = {}
     previous_reward = 0
 
     start_time = time.time()
@@ -71,8 +72,10 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.1, gamma=1.0, population=
 
         seeds = [i+i_iteration for i in range(num_agents)]
 
-        rewards = [pool.apply(sample_reward, args=(weight, i, seed,  population, gamma, max_t, std))
-            for agent, weight, i, seed in zip(agents, current_weights, indexes, seeds)]
+        rewards.clear()
+        for j in indexes:
+            agent, weight, i = agents[j], current_weights[j], j, seeds[j]
+            rewards.update(pool.apply(sample_reward, args=(weight, i,  population, gamma, max_t, std)))
         
         current_weights = [pool.apply(update_weights, args=(weight, seeds, alpha, std, rewards))
             for agent, weight in zip(agents, current_weights)]
