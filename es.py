@@ -14,33 +14,33 @@ env.seed(0)
 
 from agent import Agent
 
+print("Cores", mp.cpu_count())
 #Number of agents working in parallel
-num_agents = 2
+num_agents = 3  
 agents = []
 for i in range(num_agents):
     agent = Agent(env, state_size=8, action_size=4, seed=i)
     agents.append(agent)
 
 def sample_reward(current_weight, index, seed, population, gamma, max_t, std):
+    print(seed)
     np.random.seed(seed)
     weights = [current_weight + (std*np.random.randn(agents[index].get_weights_dim())) for i in range(population)]
     rewards = [agents[index].evaluate(weight, gamma, max_t) for weight in weights]
     return {seed : rewards}
 
-def update_weights(weights, seeds, alpha, std, rewards):
+def update_weights(weights, seeds, alpha, std, rewards, population):
     scaled_perturbations = []
     i_start = seeds[0]
     for i in seeds:
-        seed = rewards[i].key()
-        np.random.seed(seed)
-        population = len(rewards[i-i_start])
+        np.random.seed(i)
         for j in range(population):
-            scaled_perturbations.append(np.multiply(rewards[i].value()[j], np.random.randn(agents[i-i_start].get_weights_dim())))
+            scaled_perturbations.append(np.multiply(rewards[i][j], np.random.randn(agents[i-i_start].get_weights_dim())))
     n = len(scaled_perturbations)
     deltas = alpha / (n * std) * np.sum(scaled_perturbations, axis=0)
     return weights + deltas
 
-def evolution(n_iterations=1000, max_t=2000, alpha = 0.1, gamma=1.0, population=20, std=0.2):
+def evolution(n_iterations=1000, max_t=2000, alpha = 0.001, gamma=1.0, population=20, std=0.1):
     """Deep Q-Learning.
     
     Params
@@ -62,9 +62,7 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.1, gamma=1.0, population=
     start_time = time.time()
 
     for i in range(num_agents):
-        agent = Agent(env, state_size=8, action_size=4, seed=i)
-        agents.append(agent)
-        current_weights.append(std*np.random.randn(agent.get_weights_dim()))
+        current_weights.append(std*np.random.randn(agents[i].get_weights_dim()))
     
     indexes = [i for i in range(num_agents)]
 
@@ -74,10 +72,10 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.1, gamma=1.0, population=
 
         rewards.clear()
         for j in indexes:
-            agent, weight, i = agents[j], current_weights[j], j, seeds[j]
-            rewards.update(pool.apply(sample_reward, args=(weight, i,  population, gamma, max_t, std)))
+            agent, weight, i, seed = agents[j], current_weights[j], j, seeds[j]
+            rewards.update(pool.apply_async(sample_reward, args=(weight, i, seed, population, gamma, max_t, std)).get())
         
-        current_weights = [pool.apply(update_weights, args=(weight, seeds, alpha, std, rewards))
+        current_weights = [pool.apply_async(update_weights, args=(weight, seeds, alpha, std, rewards, population)).get()
             for agent, weight in zip(agents, current_weights)]
 
         current_rewards = []
