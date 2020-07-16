@@ -9,21 +9,20 @@ import random
 import time
 import multiprocessing as mp
 
-env = gym.make('LunarLander-v2')
+env = gym.make('CartPole-v0')
 env.seed(0)
 
 from agent import Agent
 
 print("Cores", mp.cpu_count())
 #Number of agents working in parallel
-num_agents = 3  
+num_agents = 4
 agents = []
 for i in range(num_agents):
-    agent = Agent(env, state_size=8, action_size=4, seed=i)
+    agent = Agent(env, state_size=4, action_size=2, seed=i)
     agents.append(agent)
 
 def sample_reward(current_weight, index, seed, population, gamma, max_t, std):
-    print(seed)
     np.random.seed(seed)
     weights = [current_weight + (std*np.random.randn(agents[index].get_weights_dim())) for i in range(population)]
     rewards = [agents[index].evaluate(weight, gamma, max_t) for weight in weights]
@@ -40,7 +39,7 @@ def update_weights(weights, seeds, alpha, std, rewards, population):
     deltas = alpha / (n * std) * np.sum(scaled_perturbations, axis=0)
     return weights + deltas
 
-def evolution(n_iterations=1000, max_t=2000, alpha = 0.001, gamma=1.0, population=20, std=0.1):
+def evolution(n_iterations=1000, max_t=2000, alpha = 0.0001, gamma=1.0, population=50, std=0.1):
     """Deep Q-Learning.
     
     Params
@@ -68,7 +67,7 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.001, gamma=1.0, populatio
 
     for i_iteration in range(1, n_iterations+1):
 
-        seeds = [i+i_iteration for i in range(num_agents)]
+        seeds = [i+i_iteration*2 for i in range(num_agents)]
 
         rewards.clear()
         for j in indexes:
@@ -87,7 +86,7 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.001, gamma=1.0, populatio
         
         torch.save(agent.state_dict(), 'checkpoint.pth')
         
-        if i_iteration % 4 == 0:
+        if i_iteration % 1 == 0:
             print('Episode {}\tAverage Score: {:.2f}'.format(i_iteration, np.mean(scores_deque)))
         if i_iteration % 100 == 0:
             elapsed_time = time.time() - start_time
@@ -98,11 +97,11 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.001, gamma=1.0, populatio
             elapsed_time = time.time() - start_time
             print("Training duration: ", elapsed_time)
             break
+    pool.close()
     return scores
 
 
 scores = evolution()
-pool.close()
 
 
 # plot the scores
