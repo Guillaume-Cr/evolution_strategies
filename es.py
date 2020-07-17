@@ -30,11 +30,11 @@ def sample_reward(current_weight, index, seed, population, gamma, max_t, std):
 
 def update_weights(weights, seeds, alpha, std, rewards, population):
     scaled_perturbations = []
-    i_start = seeds[0]
     for i in seeds:
         np.random.seed(i)
         for j in range(population):
-            scaled_perturbations.append(np.multiply(rewards[i][j], np.random.randn(agents[i-i_start].get_weights_dim())))
+            scaled_perturbations.append(np.multiply(rewards[i][j], np.random.randn(agents[0].get_weights_dim())))
+    scaled_perturbations = (scaled_perturbations - np.mean(scaled_perturbations)) / np.std(scaled_perturbations)
     n = len(scaled_perturbations)
     deltas = alpha / (n * std) * np.sum(scaled_perturbations, axis=0)
     return weights + deltas
@@ -67,7 +67,7 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.0001, gamma=1.0, populati
 
     for i_iteration in range(1, n_iterations+1):
 
-        seeds = [i+i_iteration*2 for i in range(num_agents)]
+        seeds = [i+i_iteration*num_agents for i in range(num_agents)]
 
         rewards.clear()
         for j in indexes:
