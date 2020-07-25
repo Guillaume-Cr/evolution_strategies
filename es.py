@@ -16,7 +16,7 @@ from agent import Agent
 
 print("Cores", mp.cpu_count())
 #Number of agents working in parallel
-num_agents = 4
+num_agents = 2
 agents = []
 for i in range(num_agents):
     agent = Agent(env, state_size=4, action_size=2, seed=i)
@@ -39,7 +39,7 @@ def update_weights(weights, seeds, alpha, std, rewards, population):
     deltas = alpha / (n * std) * np.sum(scaled_perturbations, axis=0)
     return weights + deltas
 
-def evolution(n_iterations=1000, max_t=2000, alpha = 0.0001, gamma=1.0, population=50, std=0.1):
+def evolution(n_iterations=1000, max_t=2000, alpha = 0.01, gamma=1.0, population=20, std=0.1):
     """Deep Q-Learning.
     
     Params
