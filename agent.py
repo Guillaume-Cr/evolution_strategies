@@ -10,7 +10,7 @@ from collections import deque
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Agent(nn.Module):
-    def __init__(self, env, state_size, action_size, h_sizes=[256,128], seed=0):
+    def __init__(self, env, state_size, action_size, h_sizes=[64,32], seed=0):
         super(Agent, self).__init__()
         self.env = env
         # state, hidden layer, action sizes
@@ -70,6 +70,13 @@ class Agent(nn.Module):
             size += layer_weights_size
         return size
         
+    def compute_b(self, state):
+        state = (state - np.mean(state)) / np.std(state)
+        total = 0
+        for i in range(4):
+            total += state[i]**2
+        return np.sqrt(total)
+
     def evaluate(self, weights, gamma=1.0, max_t=5000):
         self.set_weights(weights)
         episode_return = 0.0
@@ -81,4 +88,5 @@ class Agent(nn.Module):
             episode_return += reward * math.pow(gamma, t)
             if done:
                 break
-        return episode_return
+        return episode_return, self.compute_b(state)
+    
