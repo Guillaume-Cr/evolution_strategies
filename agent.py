@@ -12,6 +12,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class Agent(nn.Module):
     def __init__(self, env, state_size, action_size, h_sizes=[256,128], seed=0):
         super(Agent, self).__init__()
+        self.number = seed
         self.env = env
         # state, hidden layer, action sizes
         self.s_size = state_size

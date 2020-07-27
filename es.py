@@ -9,8 +9,9 @@ import random
 import time
 import multiprocessing as mp
 
-env = gym.make('CartPole-v0')
-env.seed(0)
+import threading
+
+import concurrent.futures
 
 from agent import Agent
 
@@ -19,6 +20,8 @@ print("Cores", mp.cpu_count())
 num_agents = 2
 agents = []
 for i in range(num_agents):
+    env = gym.make('CartPole-v0')
+    env.seed(0)
     agent = Agent(env, state_size=4, action_size=2, seed=i)
     agents.append(agent)
 
@@ -26,9 +29,11 @@ def sample_reward(current_weight, index, seed, population, gamma, max_t, std):
     np.random.seed(seed)
     weights = [current_weight + (std*np.random.randn(agents[index].get_weights_dim())) for i in range(population)]
     rewards = [agents[index].evaluate(weight, gamma, max_t) for weight in weights]
+    print("finish sample")
     return {seed : rewards}
 
 def update_weights(weights, seeds, alpha, std, rewards, population):
+    print("begin update")
     scaled_perturbations = []
     for i in seeds:
         np.random.seed(i)
@@ -38,6 +43,12 @@ def update_weights(weights, seeds, alpha, std, rewards, population):
     n = len(scaled_perturbations)
     deltas = alpha / (n * std) * np.sum(scaled_perturbations, axis=0)
     return weights + deltas
+
+def test():
+    print("begin")
+    time.sleep(4)
+    print("end")
+    return 1
 
 def evolution(n_iterations=1000, max_t=2000, alpha = 0.01, gamma=1.0, population=20, std=0.1):
     """Deep Q-Learning.
@@ -59,21 +70,36 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.01, gamma=1.0, population
     previous_reward = 0
 
     start_time = time.time()
-
+    
     for i in range(num_agents):
         current_weights.append(std*np.random.randn(agents[i].get_weights_dim()))
-    
-    indexes = [i for i in range(num_agents)]
 
     for i_iteration in range(1, n_iterations+1):
 
         seeds = [i+i_iteration*num_agents for i in range(num_agents)]
 
-        rewards.clear()
-        for j in indexes:
-            agent, weight, i, seed = agents[j], current_weights[j], j, seeds[j]
-            rewards.update(pool.apply_async(sample_reward, args=(weight, i, seed, population, gamma, max_t, std)).get())
+        # rewards.clear()
+        # threads = list()
+        # for index in range(num_agents):
+        #     agent, weight, i, seed = agents[j], current_weights[j], j, seeds[j]
+        #     x = threading.Thread(target=sample_reward，args=(weight, i, seed, population, gamma, max_t, std))
+        #     threads.append(x)
+        #     x.start()
         
+        # for index, thread in enumerate(threads):
+        #     thread.join()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = list()
+            for j in range(num_agents):
+                agent, weight, i, seed = agents[j], current_weights[j], j, seeds[j]
+                futures.append(executor.submit(sample_reward, weight, i, seed, population, gamma, max_t, std))
+            for future in futures:
+                return_value = future.result()
+                rewards.update(return_value)
+        # for j in indexes:
+     
+        #     rewards.update(pool.apply_async(sample_reward, args=(weight, i, seed, population, gamma, max_t, std)).get())
         current_weights = [pool.apply_async(update_weights, args=(weight, seeds, alpha, std, rewards, population)).get()
             for agent, weight in zip(agents, current_weights)]
 
