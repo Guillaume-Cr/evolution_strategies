@@ -42,6 +42,7 @@ def update_weights(weights, seeds, alpha, std, rewards, population):
     scaled_perturbations = (scaled_perturbations - np.mean(scaled_perturbations)) / np.std(scaled_perturbations)
     n = len(scaled_perturbations)
     deltas = alpha / (n * std) * np.sum(scaled_perturbations, axis=0)
+    print("finish update")
     return weights + deltas
 
 def test():
