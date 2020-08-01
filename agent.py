@@ -1,3 +1,4 @@
+import gym
 import numpy as np
 import random
 import torch
@@ -10,9 +11,11 @@ from collections import deque
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Agent(nn.Module):
-    def __init__(self, env, state_size, action_size, h_sizes=[256,128], seed=0):
+    def __init__(self, lock, env, state_size, action_size, h_sizes=[256,128], seed=0):
         super(Agent, self).__init__()
+        self.lock = lock
         self.env = env
+        self.env.reset()
         # state, hidden layer, action sizes
         self.s_size = state_size
         self.h_sizes = h_sizes
@@ -71,14 +74,18 @@ class Agent(nn.Module):
         return size
         
     def evaluate(self, weights, gamma=1.0, max_t=5000):
+        #self.lock.acquire()
         self.set_weights(weights)
         episode_return = 0.0
         state = self.env.reset()
         for t in range(max_t):
             state = torch.from_numpy(state).float().to(device)
             action = self.forward(state)
+            
             state, reward, done, _ = self.env.step(action)
+            
             episode_return += reward * math.pow(gamma, t)
             if done:
                 break
+        #self.lock.release()
         return episode_return
