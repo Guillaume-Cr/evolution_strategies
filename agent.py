@@ -82,20 +82,52 @@ class Agent(nn.Module):
         episode_returns = {}
         terminated = []
         for i in range(num_agents):
-            #print(weights)
+            #print("weights during ", weights)
             terminated.append(False)
-            self.weightsVec[i].set_weights(weights[i])
+            self.weightsVec[i].set_weights(weights.get(i))
             episode_returns.update({i: 0})
             
         states = self.env.reset()
+
+        #print("init states: ", states)
+
+        # for t in range(max_t):
+        #     states = torch.from_numpy(states).float().to(device)
+        #     actions = self.forward(states)
+        #     for j in range(num_agents):
+        #         if j != 0:
+        #             actions[j] = 0 
+        #     states, rewards, dones, _ = self.env.step(actions)
+
+        #     #print("Actions: ", actions)
+        #     #print("States: ", states)
+        #     #print("dones", dones)
+
+        #     for i in range(len(rewards)):
+        #         if(terminated[i] == True):
+        #             continue
+        #         previous_reward = episode_returns[i]
+        #         new_reward = rewards[i]
+        #         episode_returns.update({i: previous_reward + new_reward * math.pow(gamma, t)})
+        #         if dones[i] == True:
+        #             terminated[i] = True
+            
+        #     if False not in terminated:
+        #         print ("terminated: ", terminated)
+        #         print("episode_returns", episode_returns)
+        #         print("T", t)
+        #         break
+                
         for t in range(max_t):
             states = torch.from_numpy(states).float().to(device)
             actions = self.forward(states)
+            #print("actions agent", actions)
             states, rewards, dones, infos = self.env.step(actions)
+            #print("Actions: ", actions)
+            #print("States: ", states)
              #= self.env.step_wait(timeout=0.1)
+            #print("states: ", states)
 
-            #print("rewards: ", rewards)
-            #print ("terminated: ", terminated)
             for i in range(len(rewards)):
                 if(terminated[i] == True):
                     continue
@@ -104,11 +136,13 @@ class Agent(nn.Module):
                 episode_returns.update({i: previous_reward + new_reward * math.pow(gamma, t)})
                 if dones[i] == True:
                     terminated[i] = True
-            
+                
             #print("dones", dones)
 
             if False not in terminated:
-                print ("terminated: ", terminated)
+                #print ("terminated: ", terminated)
+                #print("episode_returns", episode_returns)
                 print("T", t)
                 break
+        print("episode_returns", episode_returns)
         return episode_returns

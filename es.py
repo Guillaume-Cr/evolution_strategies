@@ -15,23 +15,37 @@ from gym.vector.async_vector_env import AsyncVectorEnv
 import concurrent.futures
 
 from agent import Agent
+from agent_test import AgentTest
 
 print("Cores", mp.cpu_count())
 #Number of agents working in parallel
-num_agents = 20
+num_agents = 1
 env_fns = [make_env('CartPole-v0', num_agents) for _ in range(num_agents)]
 env = AsyncVectorEnv(env_fns)
 agent = Agent(env, state_size=4, action_size=2, num_agents=num_agents)
 
+env_test = gym.make('CartPole-v0')
+agent_test = AgentTest(env_test, state_size=4, action_size=2)
+
 def sample_weights(current_weight, seed, rng, std):
+    rng = np.random.RandomState(seed)
     weights = current_weight + (std*rng.randn(agent.get_weights_dim()))
+    #print("weights before: ", weights)
     return {seed : weights}
 
-def update_weights(weights, seeds, alpha, std, rewards):
+def update_weights(weights, rngs, alpha, std, rewards):
     scaled_perturbations = []
-    for i in seeds:
-        np.random.seed(i)
+    tested_rewards = {}
+    for i in range(len(rewards)):
+        rngs[i] = np.random.RandomState(i)
+        reassembled_weights = weights + std * rngs[i].randn(agent.get_weights_dim())
+        #print("weights after: ", reassembled_weights)
+        tested_rewards.update({i: agent_test.evaluate(weights + std * rngs[i].randn(agent.get_weights_dim()))})
+        #print("tested reward: ", tested_reward)
         scaled_perturbations.append(np.multiply(rewards[i], np.random.randn(agent.get_weights_dim())))
+    #print("tested_rewards", tested_rewards)
+    #print("rewards", rewards)
+
     scaled_perturbations = (scaled_perturbations - np.mean(scaled_perturbations)) / np.std(scaled_perturbations)
     n = len(scaled_perturbations)
     deltas = alpha / (n * std) * np.sum(scaled_perturbations, axis=0)
@@ -81,9 +95,18 @@ def evolution(num_agents, n_iterations=10000, max_t=2000, alpha = 0.01, gamma=1.
         
         sampled_rewards = agent.evaluate(sampled_weights, num_agents, gamma, max_t)
         
-        current_weights = update_weights(current_weights, seeds, alpha, std, sampled_rewards)
-
-        current_reward = np.max(list(sampled_rewards.values()))
+        print("1")
+        agent_test.evaluate(current_weights)
+        agent_test.evaluate(current_weights)
+        agent_test.evaluate(current_weights)
+        agent_test.evaluate(current_weights)
+        print("2")
+        
+        current_weights = update_weights(current_weights, rngs, alpha, std, sampled_rewards)
+        
+        print("Weights updated")
+        current_reward = agent_test.evaluate(current_weights)
+        #current_reward = np.max(list(sampled_rewards.values()))
         scores_deque.append(current_reward)
         scores.append(current_reward)
         
