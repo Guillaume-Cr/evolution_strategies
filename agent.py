@@ -142,7 +142,7 @@ class Agent(nn.Module):
             if False not in terminated:
                 #print ("terminated: ", terminated)
                 #print("episode_returns", episode_returns)
-                print("T", t)
+                #print("T", t)
                 break
-        print("episode_returns", episode_returns)
+        #print("episode_returns", episode_returns)
         return episode_returns

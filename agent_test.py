@@ -37,7 +37,8 @@ class AgentTest(nn.Module):
             if i != len(self.layers) - 1:
                 x = F.relu(x)
         x = F.softmax(x, dim=-1)
-        return np.random.choice(self.a_size, p=x.detach().numpy())
+
+        return np.argmax(x.detach().numpy())
         
     def set_weights(self, weights):
         s_size = self.s_size
@@ -74,14 +75,17 @@ class AgentTest(nn.Module):
         self.set_weights(weights)
         episode_return = 0.0
         state = self.env.reset()
+        #state = np.array([0,0,0,0])
         #print("init state test: ", state)
         for t in range(max_t):
             state = torch.from_numpy(state).float().to(device)
             action = self.forward(state)
+            #if(t == 0):
+                #print("action: ", action)
             state, reward, done, _ = self.env.step(action)
             #print("state agent", state)
             episode_return += reward * math.pow(gamma, t)
             if done:
                 break
-        print("Return from test: ", episode_return)
+        #print("Return from test: ", episode_return)
         return episode_return
