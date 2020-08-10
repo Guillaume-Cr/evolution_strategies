@@ -9,40 +9,50 @@ import random
 import time
 import multiprocessing as mp
 import threading
+from gym.vector.tests.utils import make_env, make_slow_env
+from gym.vector.async_vector_env import AsyncVectorEnv
 
 import concurrent.futures
 
 from agent import Agent
+from agent_test import AgentTest
 
 print("Cores", mp.cpu_count())
 #Number of agents working in parallel
-num_agents = 20
-agents = []
-for i in range(num_agents):
-    env = gym.make('CartPole-v0')
-    env.seed(i)
-    agent = Agent(env, state_size=4, action_size=2, seed=i)
-    agents.append(agent)
+num_agents = 50
+env_fns = [make_env('CartPole-v0', num_agents) for _ in range(num_agents)]
+env = AsyncVectorEnv(env_fns)
+agent = Agent(env, state_size=4, action_size=2, num_agents=num_agents)
 
-def sample_reward(current_weight, index, seed, gamma, max_t, std):
-    #print("Begin")
-    np.random.seed(seed)
-    weights = current_weight + (std*np.random.randn(agents[index].get_weights_dim())) 
-    reward = agents[index].evaluate(weights, gamma, max_t)
-    #print("End")
-    return {seed : reward}
+env_test = gym.make('CartPole-v0')
+agent_test = AgentTest(env_test, state_size=4, action_size=2)
 
-def update_weights(weights, seeds, alpha, std, rewards):
+def sample_weights(current_weight, seed, rng, std):
+    rng = np.random.RandomState(seed)
+    weights = current_weight + (std*rng.randn(agent.get_weights_dim()))
+    #print("weights before: ", weights)
+    return {seed : weights}
+
+def update_weights(weights, rngs, alpha, std, rewards):
     scaled_perturbations = []
-    for i in seeds:
-        np.random.seed(i)
-        scaled_perturbations.append(np.multiply(rewards[i], np.random.randn(agents[0].get_weights_dim())))
+    tested_rewards = {}
+    for i in range(len(rngs)):
+        rngs[i] = np.random.RandomState(i)
+        reassembled_weights = weights + (std * rngs[i].randn(agent_test.get_weights_dim()))
+        #print("weights after: ", reassembled_weights)
+        reward = agent_test.evaluate(reassembled_weights)
+        
+        #print("tested reward: ", tested_reward)
+        scaled_perturbations.append(np.multiply(reward, reassembled_weights))
+    #print("tested_rewards", tested_rewards)
+    #print("rewards", rewards)
+
     scaled_perturbations = (scaled_perturbations - np.mean(scaled_perturbations)) / np.std(scaled_perturbations)
     n = len(scaled_perturbations)
     deltas = alpha / (n * std) * np.sum(scaled_perturbations, axis=0)
     return weights + deltas
 
-def evolution(n_iterations=1000, max_t=2000, alpha = 0.01, gamma=1.0, std=0.1):
+def evolution(num_agents, n_iterations=10000, max_t=2000, alpha = 0.001, gamma=1.0, std=0.1):
     """Deep Q-Learning.
     
     Params
@@ -54,43 +64,51 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.01, gamma=1.0, std=0.1):
         population (int): size of population at each iteration
         std (float): standard deviation of additive noise
     """
-    pool = mp.Pool(num_agents)
     scores_deque = deque(maxlen=100)
     scores = []
     current_weights = []
-    rewards = {}
+    sampled_rewards = {}
+    sampled_weights = {}
     previous_reward = 0
 
     start_time = time.time()
-
-    current_weights = std*np.random.randn(agents[0].get_weights_dim())
+    
+    current_weights = std*np.random.randn(agent.get_weights_dim())
 
     indexes = [i for i in range(num_agents)]
+    rngs = [np.random.RandomState(i) for i in range(num_agents)]
 
     for i_iteration in range(1, n_iterations+1):
 
-        seeds = [i+i_iteration*num_agents for i in range(num_agents)]
+        seeds = [i for i in range(num_agents)]
 
-        rewards.clear()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=200) as executor:
-            futures = list()
-            for j in range(num_agents):
-                agent, i, seed = agents[j], j, seeds[j]
-                futures.append(executor.submit(sample_reward, current_weights, i, seed, gamma, max_t, std))
-            for future in futures:
-                return_value = future.result()
-                rewards.update(return_value)
+        sampled_rewards.clear()
+        sampled_weights.clear()
+        # with concurrent.futures.ThreadPoolExecutor(max_workers=num_agents) as executor:
+        #     futures = list()
+        #     for j in range(num_agents):
+        #         seed = seeds[j]
+        #         rng = rngs[j]
+        #         futures.append(executor.submit(sample_weights, current_weights, seed, rng, std))
+        #     for future in futures:
+        #         return_value = future.result()
+        #         sampled_weights.update(return_value)
         
-        current_weights = update_weights(current_weights, seeds, alpha, std, rewards)
-
-        current_rewards = []
-        current_rewards.append(agents[0].evaluate(current_weights, gamma=1.0))
-        current_reward = np.max(current_rewards)
+        # for i in range(num_agents):
+        #     sampled_rewards.update({i: agent_test.evaluate(sampled_weights[i])})
+        
+        #sampled_rewards = agent.evaluate(sampled_weights, num_agents, gamma, max_t)
+        
+        current_weights = update_weights(current_weights, rngs, alpha, std, sampled_rewards)
+        
+        #print("Weights updated")
+        current_reward = agent_test.evaluate(current_weights)
+        #current_reward = np.max(list(sampled_rewards.values()))
         scores_deque.append(current_reward)
         scores.append(current_reward)
         
         torch.save(agent.state_dict(), 'checkpoint.pth')
-        
+
         if i_iteration % 1 == 0:
             print('Episode {}\tAverage Score: {:.2f}'.format(i_iteration, np.mean(scores_deque)))
         if i_iteration % 100 == 0:
@@ -102,11 +120,10 @@ def evolution(n_iterations=1000, max_t=2000, alpha = 0.01, gamma=1.0, std=0.1):
             elapsed_time = time.time() - start_time
             print("Training duration: ", elapsed_time)
             break
-    pool.close()
     return scores
 
 
-scores = evolution()
+scores = evolution(num_agents)
 
 
 # plot the scores
