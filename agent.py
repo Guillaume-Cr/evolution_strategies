@@ -121,12 +121,8 @@ class Agent(nn.Module):
         for t in range(max_t):
             states = torch.from_numpy(states).float().to(device)
             actions = self.forward(states)
-            #print("actions agent", actions)
-            states, rewards, dones, infos = self.env.step(actions)
-            #print("Actions: ", actions)
-            #print("States: ", states)
-             #= self.env.step_wait(timeout=0.1)
-            #print("states: ", states)
+            self.env.step_async(actions)
+            states, rewards, dones, infos = self.env.step_wait(timeout=1.0)
 
             for i in range(len(rewards)):
                 if(terminated[i] == True):
