@@ -8,12 +8,12 @@ from collections import namedtuple, deque
 import random
 import time
 
-env = gym.make('LunarLander-v2')
+env = gym.make('CartPole-v0')
 env.seed(0)
 
-from agent import Agent
+from agent_test import AgentTest
 
-agent = Agent(env, state_size=8, action_size=4)
+agent = AgentTest(env, state_size=4, action_size=2)
 
 def evolution(n_iterations=1000, max_t=2000, gamma=1.0, population=20, elite_frac=0.4, std=0.2):
     """Deep Q-Learning.
@@ -43,10 +43,11 @@ def evolution(n_iterations=1000, max_t=2000, gamma=1.0, population=20, elite_fra
         rewards = [rewards[i] for i in elite_idxs]
         
         #Set min reward to 0 for weight sum
-        rewards = rewards - np.full(len(rewards), np.min(rewards))
+        #rewards = rewards - np.full(len(rewards), np.min(rewards))
+        print(rewards)
         sum_rewards = np.sum(rewards)
-        rewards = rewards / sum_rewards
-
+        rewards = rewards / (sum_rewards + 1)
+        print(sum_rewards)
         current_weights = np.average(weights_pop, axis=0, weights=rewards)
 
         reward = agent.evaluate(current_weights, gamma=1.0)
@@ -62,7 +63,7 @@ def evolution(n_iterations=1000, max_t=2000, gamma=1.0, population=20, elite_fra
             elapsed_time = time.time() - start_time
             print("Duration: ", elapsed_time)
 
-        if np.mean(scores_deque)>=200.0:
+        if np.mean(scores_deque)>=195.0:
             print('\nEnvironment solved in {:d} iterations!\tAverage Score: {:.2f}'.format(i_iteration-100, np.mean(scores_deque)))
             elapsed_time = time.time() - start_time
             print("Training duration: ", elapsed_time)
@@ -70,7 +71,7 @@ def evolution(n_iterations=1000, max_t=2000, gamma=1.0, population=20, elite_fra
     return scores
 
 
-
+input("Press Enter to continue...")
 scores = evolution()
 
 
