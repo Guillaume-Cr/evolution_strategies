@@ -51,12 +51,16 @@ class AgentTest(nn.Module):
         fc_b = [0 for i in range(len(sizes) - 1)]
         start = 0
         for i in range(len(sizes) - 1):
+            #print("start", start)
             end = start + (sizes[i]*sizes[i+1]) + sizes[i+1]
+            #print("end", end)
             fc_W[i] = torch.from_numpy(weights[start : start + sizes[i]*sizes[i+1]].reshape(sizes[i], sizes[i+1]))
             fc_b[i] = torch.from_numpy(weights[start + sizes[i]*sizes[i+1] : end])
             start = end
         
             # set the weights for each layer
+            #print(fc_W[i].shape)
+            #print(self.layers[i].weight.data.shape)
             self.layers[i].weight.data.copy_(fc_W[i].view_as(self.layers[i].weight.data))
             self.layers[i].bias.data.copy_(fc_b[i].view_as(self.layers[i].bias.data))
     
@@ -71,22 +75,17 @@ class AgentTest(nn.Module):
         self.set_weights(weights)
         episode_return = 0.0
         state = self.env.reset()
+        #state = np.array([0,0,0,0])
+        #print("init state test: ", state)
         for t in range(max_t):
             state = torch.from_numpy(state).float().to(device)
             action = self.forward(state)
+            #if(t == 0):
+                #print("action: ", action)
             state, reward, done, _ = self.env.step(action)
+            #print("state agent", state)
             episode_return += reward * math.pow(gamma, t)
             if done:
                 break
+        #print("Return from test: ", episode_return)
         return episode_return
-    
-    def render(self, weights, max_t=5000):
-        self.set_weights(weights)
-        state = self.env.reset()
-        for t in range(max_t):
-            state = torch.from_numpy(state).float().to(device)
-            action = self.forward(state)
-            state, reward, done, _ = self.env.step(action)
-            self.env.render()
-            if done:
-                break

@@ -84,7 +84,7 @@ class Agent(nn.Module):
         for i in range(num_agents):
             #print("weights during ", weights)
             terminated.append(False)
-            self.weightsVec[i].set_weights(weights.get(i))
+            self.weightsVec[i].set_weights(weights[i])
             episode_returns.update({i: 0})
             
         states = self.env.reset()
